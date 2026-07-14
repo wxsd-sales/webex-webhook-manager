@@ -1,0 +1,27 @@
+{
+  "name": "webex-webhook-manager",
+  "version": "1.0.0",
+  "description": "This example web app which makes it easy to subscribe to webex webhook notifications",
+  "keywords": [
+    "webex",
+    "webhooks"
+  ],
+  "homepage": "https://github.com/wxsd-sales/webex-webhook-manager#readme",
+  "bugs": {
+    "url": "https://github.com/wxsd-sales/webex-webhook-manager/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wxsd-sales/webex-webhook-manager.git"
+  },
+  "license": "MIT",
+  "author": "William Mills",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev:proxy": "node scripts/dev-proxy.mjs",
+    "serve:web": "node scripts/serve-web.mjs",
+    "screenshot:web": "node scripts/screenshot-web.mjs"
+  }
+}

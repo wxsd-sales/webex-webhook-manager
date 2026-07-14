@@ -1,108 +1,192 @@
-<!-- __________________________________________________ Basic Repo Steps ___________________________________________________________________________ -->
+# Webex Webhook Manager
 
+A lightweight, browser-based tool for managing a Webex bot's webhooks and generating signed test events for its webhook handler.
 
-<!-- # Repo-Template
-This is an Internal WXSD Template to be used for GitHub Repos moving forward. Follow the steps below: For extended details, visit https://cisco.sharepoint.com/:w:/r/sites/WXSD-WebexSolutionsDevelopment/Shared%20Documents/Onboarding%20Instructions%20%26%20Guides/Github%20%26%20Security/Github%20Readme%20Detailed%20Standards.docx?d=wba3225a5102341cf874d319d3f334b9b&csf=1&web=1&e=yggr2S 
+Paste a Webex bot token to instantly review, delete, and (re)create the bot's webhooks — no scripts, cURL, or Postman collections required. It also builds ready-to-paste, HMAC-signed AWS Lambda test events so you can validate your bot's webhook handler without waiting for a real Webex delivery. It's built for Webex bot developers who host their bot on AWS Lambda (or any HTTPS endpoint) and want to iterate quickly. Everything runs client-side — your bot token and shared secret never leave the browser.
 
-
-
-<!--   Step 1) Name your repository: Repo Name must ALWAYS end with "bot", "embeddedapp: or "macro"
-      Examples: "<insert repo name>-bot", "<insert repo name>-embeddedapp", "<insert repo name>macro"
-
-      
-
-~3 words, kebab case, use words to indicate what it does. Visit https://github.com/wxsd-sales/readme-template/blob/master/README.md for more details  
--->
-
-<!--  Step 2) Add One sentence description to your repository: Copy/Paste from Webex Labs Card sentence.
-       Example: "Redirect an Auto Attendant caller to an SMS conversation to alleviate Call Queue Agent responsibilities."
--->
-
-<!--  Step 3) Add at least 1 tag to the repo: Indicating if it’s a “bot”, “macro” or “embeddedapp”.       
-                 *Additional tags are allowed: should be lowercase and hyphenated for spaces.
-                Repo does not use “macros” as a tag (use “macro” instead)
--->
-
-<!--  Step 4) MAKE SURE an MIT license is included in your Repository. If another license is needed, verify with management. This is for legal reasons.
--->
-
-<!--  Step 4) Use following Template to copy/paste your details below in place of the directions 
-Make sure you include the "Keep this here" portions (it is for legal, and security infosec reasons).
--->
-
-<!-- _________________________________________________________ Actual Template Starts Below ___________________________________________________________ -->
-
-
-# Insert Repo Name Here
- 1 short main sentence - can use Webex Labs card sentence. Example: "Establish conversations between Apple Messages for Business users and Webex App users.
-
-Insert a paragraph (3-4 sentences). 1 Sentence on **WHAT** the project is about. Insert 1 Sentence on  **WHY** it exists and 1 Sentence on **WHO** it is for.  
-
- <!--- Insert a screenshot, gif or image below that shows a little about your Demo/PoC -->
- ![image/gif](https://ezgif.com)
-
+ <a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/connected-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/connected-light.png">
+    <img alt="Webex Webhook Manager – bot connected" src="screenshots/connected-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
 
 ## Overview
 
-Go into detail about the implementation.   3-4 Sentences
-**HOW** the implementation works. You need not give end-to-end details but an overview.
+The app is a single static page split into two tabs — **Webhooks** and **Generate Test Payloads** — and talks to the [Webex REST API](https://developer.webex.com/docs/api/v1/webhooks) directly from your browser using the bot token you provide. There is no backend and nothing is stored: reload the page and the token is gone.
 
+> **Where do I get a bot token?** Sign in at [developer.webex.com/my-apps](https://developer.webex.com/my-apps) → **Create a New App** → **Create a Bot**. Once created, copy the **Bot Access Token** shown on the confirmation page (it's only shown once). Paste that token into the app.
 
+### Create and Manage Webhooks
+
+Review, delete, and create a bot's Webex webhooks using its access token — handy for repointing a bot at a new endpoint or clearing out stale webhooks.
+
+1. Enter your Webex bot access token and click **Connect**.
+
+<a href="https://wxsd-sales.github.io/webex-webhook-manager">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="screenshots/enterToken-dark.png">
+<source media="(prefers-color-scheme: light)" srcset="screenshots/enterToken-light.png">
+<img alt="Entering a bot access token" src="screenshots/enterToken-light.png" style="border: 2px solid #000;">
+</picture>
+</a>
+
+2. The app fetches the identity associated with the token (via `getMyOwnDetails`) and displays the bot's name and email so you can confirm you're managing the right bot.
+
+<a href="https://wxsd-sales.github.io/webex-webhook-manager">
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/connected-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/connected-light.png">
+    <img alt="Bot identity after connecting" src="screenshots/connected-light.png" style="border: 2px solid #000;">
+</picture>
+</a>
+
+3. Review every webhook registered against the token, then delete them individually or clear them all with one click.
+
+<a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/existingWebhooks-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/existingWebhooks-light.png">
+    <img alt="Listing and deleting existing webhooks" src="screenshots/existingWebhooks-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
+
+4. Create new webhooks in bulk. Pick the resource/event combinations your bot needs (e.g. `messages/created`, `attachmentActions/created`), point them at your target URL, and optionally set a signing secret — one webhook is created per selected resource.
+
+ <a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/createWebhooks-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/createWebhooks-light.png">
+    <img alt="Creating new webhooks" src="screenshots/createWebhooks-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
+
+### Generate Lambda Function Tests
+
+AWS Lambda functions are an ideal place to process Webex bot webhook notifications and respond to the messages or card actions sent to your bot. This tab generates realistic, signed test events for each webhook resource so you can validate your Lambda handler — including its signature verification — without waiting for a real Webex delivery.
+
+1. Open the **Generate Test Payloads** tab and select the webhook resource/event types you want to test.
+    - Enter the same **shared secret** you used when creating the webhook so each payload's `x-spark-signature` header (an `HMAC-SHA1` of the body) is calculated correctly. Leave it blank to produce an unsigned payload.
+
+ <a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/generateTests-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/generateTests-light.png">
+    <img alt="Selecting resources and events to test" src="screenshots/generateTests-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
+
+2. Customise each selected resource's data using the inline fields that appear beneath it — for example the message markdown for `messages`, or the submitted card `inputs` (JSON) for `attachmentActions`.
+
+ <a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/customiseTest-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/customiseTest-light.png">
+    <img alt="Customising the test payload data" src="screenshots/customiseTest-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
+
+3. Click **Generate** and copy the resulting test event(s) into your AWS Lambda function's test console. Each event is a complete **API Gateway HTTP API (payload format 2.0)** request, with the signature already set in the headers.
+
+ <a href="https://wxsd-sales.github.io/webex-webhook-manager">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="screenshots/exampleTextJson-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="screenshots/exampleTextJson-light.png">
+    <img alt="Example generated Lambda test JSON" src="screenshots/exampleTextJson-light.png" style="border: 2px solid #000;">
+  </picture>
+</a>
 
 ### Flow Diagram
 
-<!-- *MANDATORY*  Insert Your Flow Diagram Here (if small PoC, alternative option is to include break down how it works here instead of diagram) -->
-![image/gif](insert img link here)
+<details>
+    <summary>Click here to view flow diagram</summary>
 
+```mermaid
+flowchart TD
+    A[Paste Webex bot token] --> B[Connect]
+    B -->|getMyOwnDetails| C[Show bot identity]
+    C -->|listWebhooks| D[List existing webhooks]
+
+    subgraph webhooks [Webhooks tab]
+        D --> E[Delete one<br/>deleteWebhook]
+        D --> F[Delete all<br/>deleteWebhook x N]
+        D --> G[Create webhooks<br/>createWebhook per resource]
+        E --> D
+        F --> D
+        G --> D
+    end
+
+    subgraph payloads [Generate Test Payloads tab]
+        H[Select resources and events] --> I[Customise data<br/>markdown / inputs / fields]
+        I --> J[Build Webex webhook body]
+        J --> K[Sign with shared secret<br/>HMAC-SHA1]
+        K --> L[Wrap in API Gateway HTTP event<br/>x-spark-signature header]
+        L --> M[Copy test JSON]
+    end
+```
+
+All Webex API calls (`getMyOwnDetails`, `listWebhooks`, `createWebhook`, `deleteWebhook`) run from the browser. The **Generate Test Payloads** tab is entirely local — it never contacts Webex and works without connecting a token.
+
+</details>
 
 
 ## Setup
 
-### Prerequisites & Dependencies: 
+You don't need to install anything to _use_ the app — just open the [hosted demo](https://wxsd-sales.github.io/webex-webhook-manager) and paste your bot token. The steps below are for running it locally or hosting your own copy.
 
-- Is this dependant on having another repo
-- Insert pre-requisites in bullets
-- Insert pre-requisite here  Also state any assumptions that you may have made about the user.
-- Limit nested bullets
+> [!IMPORTANT]
+> The app calls the Webex API from the browser, and Webex only accepts those cross-origin (CORS) requests from a valid web origin. This has two consequences:
+>
+> - **You cannot open `index.html` as a `file://` page, and you cannot host it on a bare IP address.** It must be served over HTTP(S) from a proper, fully-qualified domain name (FQDN) — e.g. `https://your-name.github.io/...`.
+> - **`localhost` is not an FQDN**, so the browser blocks direct calls to the Webex API during local development. The included dev proxy is therefore **required** when running locally — the app automatically routes API calls through it on `localhost` / `127.0.0.1`.
 
+### Prerequisites & Dependencies
 
-<!-- GETTING STARTED -->
+- A **Webex bot** and its **access token** — create one at [developer.webex.com/my-apps](https://developer.webex.com/my-apps) (see [Overview](#overview) above).
+- **Node.js 18+** — needed to run the local dev proxy and static server (and to regenerate screenshots). The app itself is plain static HTML/CSS/JS with **no runtime dependencies** and no build step.
+- A **static web host with a real domain and HTTPS** for deployment — e.g. GitHub Pages, Netlify, Vercel, or S3 + CloudFront. Hosting from a raw IP address or opening the file directly will not work.
+- **Google Chrome / Chromium** — only required if you want to run `npm run screenshot:web` to regenerate the screenshots.
 
-### Installation Steps:
-1.  Include step one here
-    ```sh
-    insert line of code here if applicable
-    ```
-2.  Insert step two here
-    Insert screenshot, if applicable
-    
-    
-    
+### Installation Steps
+
+1. Fork this repository (so you get your own GitHub Pages URL), then clone your fork:
+
+   ```sh
+   git clone https://github.com/<your-username>/webex-webhook-manager.git
+   cd webex-webhook-manager
+   ```
+
+2. **Run it locally (the dev proxy is required).** Because `localhost` isn't an FQDN, the browser blocks direct calls to the Webex API, so the app routes them through a small proxy. Run each command in its own terminal and leave both running:
+
+   ```sh
+   npm run dev:proxy   # required — proxies the Webex API on http://127.0.0.1:8787
+   npm run serve:web   # serves the app on http://127.0.0.1:4173
+   ```
+
+   Then open <http://127.0.0.1:4173>. On `localhost` / `127.0.0.1` the app automatically sends its Webex API calls through the proxy; if the proxy isn't running, connecting will fail.
+
+3. **Host your own copy (needs a real domain).** The app is fully static, so just publish the repo root (`index.html`, `styles.css`, and `scripts/`) to an HTTPS domain:
+
+   - **GitHub Pages:** push to your fork, then go to **Settings → Pages → Build and deployment**, choose **Deploy from a branch**, and select `main` / `/ (root)`. Your copy will be live at `https://<your-username>.github.io/webex-webhook-manager`.
+   - **Any other static host:** upload the same files to Netlify, Vercel, S3 + CloudFront, etc.
+
+   When served from a proper HTTPS domain, the app calls the Webex API directly from the browser — no proxy is needed in production. It will **not** work from a `file://` path or a bare IP address.
+
 ## Demo
 
-<!-- Insert link to the website below (if deployed). -->
-Check out our live demo, available [here](<insert link>)!
+Check out our live demo, available [here](https://wxsd-sales.github.io/webex-webhook-manager)!
 
-<!-- Keep the following statement -->
-*For more demos & PoCs like this, check out our [Webex Labs site](https://collabtoolbox.cisco.com/webex-labs).
-
-
-<!-- Update your vidcast title, video screenshot, vidcast/youtube link & name -->
-[![Your Video Title ](assets/peer_support_main.PNG)](https://www.youtube.com/watch?v=SqZhiC8jHhU&t=10s, "<insert demo name here>")
-
-
+\*For more demos & PoCs like this, check out our [Webex Labs site](https://collabtoolbox.cisco.com/webex-labs).
 
 ## License
-<!-- MAKE SURE an MIT license is included in your Repository. If another license is needed, verify with management. This is for legal reasons.--> 
 
-<!-- Keep the following statement -->
 All contents are licensed under the MIT license. Please see [license](LICENSE) for details.
 
-
 ## Disclaimer
-<!-- Keep the following here -->  
- Everything included is for demo and Proof of Concept purposes only. Use of the site is solely at your own risk. This site may contain links to third party content, which we do not warrant, endorse, or assume liability for. These demos are for Cisco Webex usecases, but are not Official Cisco Webex Branded demos.
 
+Everything included is for demo and Proof of Concept purposes only. Use of the site is solely at your own risk. This site may contain links to third party content, which we do not warrant, endorse, or assume liability for. These demos are for Cisco Webex usecases, but are not Official Cisco Webex Branded demos.
 
 ## Questions
-Please contact the WXSD team at [wxsd@external.cisco.com](mailto:wxsd@external.cisco.com?subject=RepoName) for questions. Or, if you're a Cisco internal employee, reach out to us on the Webex App via our bot (globalexpert@webex.bot). In the "Engagement Type" field, choose the "API/SDK Proof of Concept Integration Development" option to make sure you reach our team. 
+
+Please contact the WXSD team at [wxsd@external.cisco.com](mailto:wxsd@external.cisco.com?subject=webex-webhook-manager) for questions. Or, if you're a Cisco internal employee, reach out to us on the Webex App via our bot (globalexpert@webex.bot). In the "Engagement Type" field, choose the "API/SDK Proof of Concept Integration Development" option to make sure you reach our team.
