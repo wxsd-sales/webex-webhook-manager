@@ -1,0 +1,37 @@
+name: Webapp Screenshots
+
+on:
+  push:
+    paths:
+      - "index.html"
+      - "styles.css"
+      - "scripts/**"
+      - ".github/workflows/webapp-screenshots.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "styles.css"
+      - "scripts/**"
+      - ".github/workflows/webapp-screenshots.yml"
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Capture webapp screenshots
+        run: npm run screenshot:web
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp-screenshots
+          path: screenshots/
