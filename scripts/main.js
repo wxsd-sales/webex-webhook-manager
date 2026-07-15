@@ -666,17 +666,18 @@ async function createWebhooks(event) {
   }
 
   /**
-   * HMAC-SHA1 hex digest. Webex's webhook signature (the X-Spark-Signature
-   * header) is defined as HMAC-SHA1 of the raw request body using the webhook
-   * secret, so SHA-1 is required here for compatibility with Webex — it is not
-   * a free security choice. See developer.webex.com webhook docs.
+   * HMAC hex digest for the given hash algorithm. The chosen hash is dictated by
+   * the Webex signature header being reproduced (SHA-1 for X-Spark-Signature,
+   * SHA-256/SHA-512 for X-Webex-Signature), so these are required for
+   * compatibility with Webex — not a free security choice. See the
+   * developer.webex.com webhook docs.
    */
-  async function signHmacSha1Hex(secret, message) {
+  async function signHmacHex(secret, message, hash) {
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
       encoder.encode(secret),
-      { name: "HMAC", hash: "SHA-1" },
+      { name: "HMAC", hash },
       false,
       ["sign"],
     );
@@ -688,6 +689,24 @@ async function createWebhooks(event) {
     return Array.from(new Uint8Array(signature))
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("");
+  }
+
+  /**
+   * Computes the signature headers Webex sends alongside a webhook delivery:
+   * - `x-spark-signature`: HMAC-SHA1 hex digest of the raw body (legacy header).
+   * - `x-webex-signature`: comma-separated HMAC-SHA256 and HMAC-SHA512 hex
+   *   digests, formatted as "SHA-256=<hex>, SHA-512=<hex>" (current header).
+   */
+  async function buildSignatureHeaders(secret, message) {
+    const [sha1, sha256, sha512] = await Promise.all([
+      signHmacHex(secret, message, "SHA-1"),
+      signHmacHex(secret, message, "SHA-256"),
+      signHmacHex(secret, message, "SHA-512"),
+    ]);
+    return {
+      "x-spark-signature": sha1,
+      "x-webex-signature": `SHA-256=${sha256}, SHA-512=${sha512}`,
+    };
   }
 
   /**
@@ -769,10 +788,10 @@ async function createWebhooks(event) {
 
   /**
    * Wraps a signed webhook body in an AWS API Gateway HTTP API (payload format
-   * 2.0) proxy event, with the signature in the headers. The account id, api id
+   * 2.0) proxy event, with the signatures in the headers. The account id, api id
    * and domain are illustrative placeholders.
    */
-  function buildLambdaEvent(bodyString, signature) {
+  function buildLambdaEvent(bodyString, signatureHeaders) {
     const now = new Date();
     const apiId = "abc1234567";
     const region = "eu-west-1";
@@ -786,8 +805,8 @@ async function createWebhooks(event) {
       "user-agent": "SparkWebhook/1.0",
       trackingid: `WEBHOOK_TEST_${randomUuid()}`,
     };
-    if (signature) {
-      headers["x-spark-signature"] = signature;
+    if (signatureHeaders) {
+      Object.assign(headers, signatureHeaders);
     }
     return {
       version: "2.0",
@@ -1037,10 +1056,10 @@ async function createWebhooks(event) {
       for (const { resource, event: eventName, custom } of jobs) {
         const webhook = buildWebhookEnvelope(resource, eventName, ids, custom);
         const bodyString = JSON.stringify(webhook);
-        const signature = secret
-          ? await signHmacSha1Hex(secret, bodyString)
-          : "";
-        const lambdaEvent = buildLambdaEvent(bodyString, signature);
+        const signatureHeaders = secret
+          ? await buildSignatureHeaders(secret, bodyString)
+          : null;
+        const lambdaEvent = buildLambdaEvent(bodyString, signatureHeaders);
         renderPayloadCard(resource, eventName, JSON.stringify(lambdaEvent, null, 2));
       }
       setStatus(
