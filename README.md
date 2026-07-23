@@ -67,7 +67,7 @@ Review, delete, and create a bot's Webex webhooks using its access token — han
 AWS Lambda functions are an ideal place to process Webex bot webhook notifications and respond to the messages or card actions sent to your bot. This tab generates realistic, signed test events for each webhook resource so you can validate your Lambda handler — including its signature verification — without waiting for a real Webex delivery.
 
 1. Open the **Generate Test Payloads** tab and select the webhook resource/event types you want to test.
-    - Enter the same **shared secret** you used when creating the webhook so each payload's `x-spark-signature` header (an `HMAC-SHA1` of the body) is calculated correctly. Leave it blank to produce an unsigned payload.
+    - Enter the same **shared secret** you used when creating the webhook so each payload's signature headers are calculated correctly: `x-spark-signature` (an `HMAC-SHA1` of the body) and `x-webex-signature` (the `HMAC-SHA256` and `HMAC-SHA512` digests, formatted as `SHA-256=<hex>, SHA-512=<hex>`). Leave it blank to produce an unsigned payload.
 
  <a href="https://wxsd-sales.github.io/webex-webhook-manager">
   <picture>
@@ -120,8 +120,8 @@ flowchart TD
     subgraph payloads [Generate Test Payloads tab]
         H[Select resources and events] --> I[Customise data<br/>markdown / inputs / fields]
         I --> J[Build Webex webhook body]
-        J --> K[Sign with shared secret<br/>HMAC-SHA1]
-        K --> L[Wrap in API Gateway HTTP event<br/>x-spark-signature header]
+        J --> K[Sign with shared secret<br/>HMAC-SHA1 / SHA-256 / SHA-512]
+        K --> L[Wrap in API Gateway HTTP event<br/>x-spark-signature + x-webex-signature headers]
         L --> M[Copy test JSON]
     end
 ```

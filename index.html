@@ -376,9 +376,10 @@
                 Build signed AWS Lambda test events that mirror what Webex
                 delivers to your bot. Pick the resources you want, tweak the
                 message or card inputs, then generate one ready&#8209;to&#8209;paste
-                test event per resource &mdash; each with a valid
-                <code>x-spark-signature</code> header derived from your shared
-                secret. Everything is computed locally in your browser.
+                test event per resource &mdash; each with valid
+                <code>x-spark-signature</code> and <code>x-webex-signature</code>
+                headers derived from your shared secret. Everything is computed
+                locally in your browser.
               </p>
 
               <form class="config-form" id="payloadForm">
@@ -412,9 +413,11 @@
                     </button>
                   </div>
                   <span class="field__hint"
-                    >Webex signs each payload with
-                    <code>HMAC&#8209;SHA1(body, secret)</code> and sends it as the
-                    <code>X&#8209;Spark&#8209;Signature</code> header. Leave blank to
+                    >Webex signs each payload with your secret and sends the
+                    <code>HMAC&#8209;SHA1</code> digest as
+                    <code>X&#8209;Spark&#8209;Signature</code> plus the
+                    <code>HMAC&#8209;SHA256</code>/<code>SHA512</code> digests as
+                    <code>X&#8209;Webex&#8209;Signature</code>. Leave blank to
                     generate an unsigned payload.</span
                   >
                 </div>
