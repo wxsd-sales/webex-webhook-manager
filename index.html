@@ -3,49 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (function initMomentumTheme() {
-        const getHashTheme = () => {
-          const raw = window.location.hash.startsWith("#")
-            ? window.location.hash.slice(1)
-            : window.location.hash;
-
-          if (!raw) {
-            return null;
-          }
-
-          const theme = new URLSearchParams(raw).get("theme");
-          return theme === "light" || theme === "dark" ? theme : null;
-        };
-
-        const apply = () => {
-          const forcedTheme = getHashTheme();
-          const dark = forcedTheme
-            ? forcedTheme === "dark"
-            : window.matchMedia("(prefers-color-scheme: dark)").matches;
-          const root = document.documentElement;
-
-          root.classList.remove(
-            "mds-theme-stable-lightWebex",
-            "mds-theme-stable-darkWebex",
-          );
-          root.classList.add(
-            dark ? "mds-theme-stable-darkWebex" : "mds-theme-stable-lightWebex",
-          );
-          root.style.colorScheme = dark ? "dark" : "light";
-        };
-
-        apply();
-        window.addEventListener("hashchange", apply);
-        window
-          .matchMedia("(prefers-color-scheme: dark)")
-          .addEventListener("change", () => {
-            if (!getHashTheme()) {
-              apply();
-            }
-          });
-      })();
-    </script>
+    <meta name="color-scheme" content="light dark" />
+    
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@momentum-design/icons@0.54.0/dist/data/MomentumFontIcons.css"
@@ -61,6 +20,7 @@
     <title>Webex Webhook Manager</title>
     <link rel="stylesheet" href="styles.css" />
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
+    <script type="module" src="scripts/theme.js"></script>
   </head>
   <body>
     <header class="app-header">
