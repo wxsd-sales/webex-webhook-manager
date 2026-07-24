@@ -89,7 +89,7 @@ function findChrome() {
 
 function startServer() {
   let errorOutput = "";
-  const child = spawn(process.execPath, ["scripts/serve-web.mjs"], {
+  const child = spawn(process.execPath, ["devScripts/serve-web.mjs"], {
     env: {
       ...process.env,
       HOST: host,

@@ -60,6 +60,8 @@ export const MOCK_WEBHOOKS = [
     event: "created",
     status: "active",
     targetUrl: "https://k7q2m9x4.lambda-url.eu-west-1.on.aws/",
+    filter:
+      "roomId=Y2lzY29zcGFyazovL3VzL1JPT00vZXhhbXBsZS1yb29tLWlkLTAwMDA&mentionedPeople=me",
     created: "2026-07-09T14:12:03.000Z",
   },
   {

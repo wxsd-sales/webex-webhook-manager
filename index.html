@@ -273,7 +273,10 @@
             Select the resources your bot needs and create all of the matching
             webhooks in one go. For a typical card&#8209;based bot you want
             <code>messages</code> and <code>attachmentActions</code> on the
-            <code>created</code> event.
+            <code>created</code> event. Optionally scope each webhook with a
+            <strong>filter</strong> &mdash; type the raw filter string or use the
+            builder to add keys, including a lookup to find a room or person by
+            name.
           </p>
 
           <form class="config-form" id="createForm">

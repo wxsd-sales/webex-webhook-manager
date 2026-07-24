@@ -776,6 +776,10 @@ h2 {
   gap: 16px;
 }
 
+.webhook-card__header .icon-button {
+  flex-shrink: 0;
+}
+
 .webhook-card__title-wrap {
   display: grid;
   gap: 8px;
@@ -832,37 +836,91 @@ h2 {
   color: var(--wwm-warning);
 }
 
-.webhook-card__meta {
+.badge--created {
+  background: var(--wwm-surface);
+  border-color: var(--wwm-border);
+  color: var(--wwm-text-secondary);
+}
+
+/* Key/value rows: label on the left, value on the right (large screens) */
+.webhook-card__details {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px 20px;
+  gap: 12px;
   margin: 0;
 }
 
-.webhook-card__meta div {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+.webhook-card__detail {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.webhook-card__meta dt {
+.webhook-card__detail dt {
+  flex: none;
   font-size: 12px;
   font-weight: 600;
   color: var(--wwm-text-secondary);
 }
 
-.webhook-card__meta dd {
+.webhook-card__detail dd {
   margin: 0;
+  min-width: 0;
   font-size: 14px;
   color: var(--wwm-text);
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
-.webhook-card__id {
+.webhook-card__filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.filter-param {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.filter-param__key {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wwm-text-secondary);
+}
+
+.filter-param__key::after {
+  content: ":";
+}
+
+.filter-param__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.filter-param__id {
+  display: inline-block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   color: var(--wwm-text-secondary);
+}
+
+.filter-param__name,
+.filter-param__text {
+  font-size: 14px;
+  color: var(--wwm-text);
 }
 
 /* Create: resource checkboxes */
@@ -988,6 +1046,189 @@ h2 {
   cursor: pointer;
 }
 
+/* Create: per-resource filter builder */
+.resource-filter {
+  display: grid;
+  gap: 10px;
+  padding: 4px 14px 14px 44px;
+}
+
+.resource-filter__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wwm-text-secondary);
+}
+
+.resource-filter__builder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.resource-filter__key {
+  flex: none;
+  width: auto;
+  min-width: 150px;
+}
+
+.resource-filter__value {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.resource-filter__value:empty {
+  display: none;
+}
+
+.resource-filter__add {
+  flex: none;
+}
+
+.resource-filter__add:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.resource-filter__lookup-control,
+.resource-filter__mentioned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.resource-filter__lookup-input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.resource-filter__mentioned {
+  flex-direction: column;
+}
+
+.resource-filter__mentioned-person {
+  display: flex;
+}
+
+.resource-filter__search {
+  flex: none;
+}
+
+/* Lookup results dropdown */
+.resource-filter__lookup {
+  border: 1px solid var(--wwm-border);
+  border-radius: 10px;
+  background: var(--wwm-surface);
+  overflow: hidden;
+}
+
+.resource-filter__lookup-status {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--wwm-text-secondary);
+}
+
+.resource-filter__results {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  display: grid;
+  gap: 2px;
+}
+
+.resource-filter__result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--wwm-text);
+}
+
+.resource-filter__result:hover,
+.resource-filter__result:focus-visible {
+  background: var(--wwm-info-bg);
+  outline: none;
+}
+
+.resource-filter__result-name {
+  font-weight: 600;
+}
+
+.resource-filter__result-sub {
+  font-size: 12px;
+  color: var(--wwm-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* Chips reflecting the current filter string */
+.resource-filter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 4px 3px 10px;
+  border-radius: 999px;
+  background: var(--wwm-surface);
+  border: 1px solid var(--wwm-border);
+  font-size: 12px;
+}
+
+.filter-chip__key {
+  font-weight: 600;
+  color: var(--wwm-text-secondary);
+}
+
+.filter-chip__key::after {
+  content: ":";
+}
+
+.filter-chip__value {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wwm-text);
+}
+
+.filter-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--wwm-text-secondary);
+  cursor: pointer;
+}
+
+.filter-chip__remove:hover {
+  background: var(--wwm-surface-muted);
+  color: var(--wwm-text);
+}
+
+.filter-chip__remove .icon {
+  font-size: 14px;
+  pointer-events: none;
+}
+
 /* Multiline text inputs */
 .field__textarea {
   min-height: 88px;
@@ -1073,14 +1314,42 @@ h2 {
     grid-template-columns: 1fr;
   }
 
-  .webhook-card__header,
   .payload-card__header {
     flex-direction: column;
   }
 
-  .webhook-card__header .icon-button,
   .payload-card__header .icon-button {
     align-self: flex-start;
+  }
+
+  /* Collapse the webhook delete button to just the trash icon to save space */
+  .webhook-card__header .icon-button--with-label {
+    width: 40px;
+    min-width: 40px;
+    padding: 0;
+  }
+
+  .webhook-card__header .icon-button__label {
+    display: none;
+  }
+
+  /* Stack labels on top of their values on smaller displays */
+  .webhook-card__detail {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .webhook-card__detail dd {
+    text-align: left;
+  }
+
+  .webhook-card__filter {
+    align-items: flex-start;
+  }
+
+  .filter-param {
+    justify-content: flex-start;
   }
 }
 

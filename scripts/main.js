@@ -138,6 +138,44 @@ const RESOURCE_PRESETS = [
 ];
 
 /**
+ * Allowed webhook filter keys per resource, describing how the create-form
+ * filter builder renders each value control:
+ *   - "lookup": id value; text input + Search that queries rooms/people
+ *   - "enum":   fixed set of values shown in a dropdown
+ *   - "bool":   true/false dropdown
+ *   - "text":   free text (e.g. an email)
+ *   - "mentioned": me | a specific person (person lookup)
+ * See https://developer.webex.com/docs/api/v1/webhooks/create-a-webhook.
+ */
+const FILTER_SCHEMAS = {
+  messages: [
+    { key: "roomId", type: "lookup", entity: "room" },
+    { key: "roomType", type: "enum", options: ["direct", "group"] },
+    { key: "personId", type: "lookup", entity: "person" },
+    { key: "personEmail", type: "text", placeholder: "person@example.com" },
+    { key: "mentionedPeople", type: "mentioned" },
+    { key: "hasFiles", type: "bool" },
+    { key: "hasAttachments", type: "bool" },
+  ],
+  attachmentActions: [
+    { key: "roomId", type: "lookup", entity: "room" },
+    { key: "personId", type: "lookup", entity: "person" },
+    { key: "personEmail", type: "text", placeholder: "person@example.com" },
+  ],
+  memberships: [
+    { key: "roomId", type: "lookup", entity: "room" },
+    { key: "roomType", type: "enum", options: ["direct", "group"] },
+    { key: "personId", type: "lookup", entity: "person" },
+    { key: "personEmail", type: "text", placeholder: "person@example.com" },
+    { key: "isModerator", type: "bool" },
+  ],
+  rooms: [
+    { key: "type", type: "enum", options: ["direct", "group"] },
+    { key: "isLocked", type: "bool" },
+  ],
+};
+
+/**
  * The connected Webex client. Held only in memory for the life of the page so
  * the bot token is never persisted to disk or storage.
  */
@@ -245,6 +283,122 @@ function wireRevealToggle(button, input, noun = "value") {
 }
 
 /**
+ * Caches in-flight/resolved entity-name lookups so the same room/person/org id
+ * appearing across several webhook filters is only fetched once. Values are the
+ * lookup promises themselves.
+ */
+const entityNameCache = new Map();
+
+/**
+ * Resolves the human-friendly name for a filter entity id, using the Webex
+ * lookup methods. Returns null when unavailable (no client, or the request
+ * failed) so callers can fall back to showing just the id.
+ * @param {"room"|"person"|"org"} type
+ * @param {string} id
+ * @returns {Promise<?string>}
+ */
+function resolveEntityName(type, id) {
+  if (!webex || !id) {
+    return Promise.resolve(null);
+  }
+  const key = `${type}:${id}`;
+  if (entityNameCache.has(key)) {
+    return entityNameCache.get(key);
+  }
+  const lookup = (async () => {
+    try {
+      if (type === "room") {
+        return (await webex.getRoomDetails(id)).title || null;
+      }
+      if (type === "person") {
+        return (await webex.getPersonDetails(id)).displayName || null;
+      }
+      if (type === "org") {
+        return (await webex.getOrgDetails(id)).displayName || null;
+      }
+    } catch (error) {
+      console.error(`Failed to resolve ${type} name`, error);
+    }
+    return null;
+  })();
+  entityNameCache.set(key, lookup);
+  return lookup;
+}
+
+/**
+ * Maps a webhook filter key to the entity type whose name can be resolved, or
+ * null when the value should be shown as-is. `mentionedPeople=me` is a keyword,
+ * not a person id, so it is left untouched.
+ */
+function filterEntityType(key, value) {
+  switch (key) {
+    case "roomId":
+      return "room";
+    case "personId":
+      return "person";
+    case "orgId":
+      return "org";
+    case "mentionedPeople":
+      return value === "me" ? null : "person";
+    default:
+      return null;
+  }
+}
+
+/**
+ * Builds the DOM for a webhook filter value. The filter is a URL-search-params
+ * style string (e.g. `roomId=...&mentionedPeople=me`). Resolvable ids keep the
+ * (truncated) id visible with the resolved name appended once it loads.
+ */
+function buildFilterValue(filter) {
+  const container = el("div", { class: "webhook-card__filter" });
+
+  let entries = [];
+  try {
+    entries = Array.from(new URLSearchParams(filter).entries());
+  } catch {
+    entries = [];
+  }
+
+  if (!entries.length) {
+    container.append(el("span", { class: "filter-param__text" }, filter));
+    return container;
+  }
+
+  for (const [key, value] of entries) {
+    const type = filterEntityType(key, value);
+    let valueNode;
+
+    if (type) {
+      const nameSpan = el("span", { class: "filter-param__name" });
+      if (webex) {
+        nameSpan.textContent = "\u2026";
+        resolveEntityName(type, value).then((name) => {
+          nameSpan.textContent = name || "";
+        });
+      }
+      valueNode = el("span", { class: "filter-param__value" }, [
+        el("span", { class: "filter-param__id", title: value }, value),
+        nameSpan,
+      ]);
+    } else {
+      valueNode = el("span", { class: "filter-param__value" }, [
+        el("span", { class: "filter-param__text" }, value),
+      ]);
+    }
+
+    container.append(
+      el("div", { class: "filter-param" }, [
+        el("span", { class: "filter-param__key" }, key),
+        valueNode,
+      ]),
+    );
+  }
+
+  return container;
+}
+
+/**
  * Renders the list of webhooks. Every value comes from the Webex API and is
  * inserted via textContent / DOM nodes (never innerHTML) to prevent any HTML
  * injection from webhook names or target URLs.
@@ -266,8 +420,11 @@ function renderWebhooks(items) {
     const isActive = (hook.status || "active") === "active";
 
     const badges = el("div", { class: "webhook-card__badges" }, [
-      el("span", { class: "badge badge--resource" }, hook.resource || "?"),
-      el("span", { class: "badge badge--event" }, hook.event || "?"),
+      el("span", { class: "badge badge--resource" }, `Resource: ${hook.resource || "?"}`),
+      el("span", { class: "badge badge--event" }, `Event: ${hook.event || "?"}`),
+      hook.created
+        ? el("span", { class: "badge badge--created" }, `Created ${formatDate(hook.created)}`)
+        : null,
       el(
         "span",
         { class: `badge ${isActive ? "badge--active" : "badge--inactive"}` },
@@ -275,10 +432,17 @@ function renderWebhooks(items) {
       ),
     ]);
 
-    const meta = el("dl", { class: "webhook-card__meta" }, [
-      el("div", {}, [el("dt", {}, "Target URL"), el("dd", {}, hook.targetUrl || "\u2014")]),
-      el("div", {}, [el("dt", {}, "Created"), el("dd", {}, formatDate(hook.created) || "\u2014")]),
-      el("div", {}, [el("dt", {}, "ID"), el("dd", { class: "webhook-card__id" }, hook.id || "\u2014")]),
+    const details = el("dl", { class: "webhook-card__details" }, [
+      el("div", { class: "webhook-card__detail" }, [
+        el("dt", {}, "Target URL"),
+        el("dd", {}, hook.targetUrl || "\u2014"),
+      ]),
+      hook.filter
+        ? el("div", { class: "webhook-card__detail" }, [
+            el("dt", {}, "Filter"),
+            el("dd", {}, buildFilterValue(hook.filter)),
+          ])
+        : null,
     ]);
 
     const deleteBtn = el(
@@ -302,7 +466,7 @@ function renderWebhooks(items) {
       deleteBtn,
     ]);
 
-    els.webhookList.append(el("div", { class: "webhook-card" }, [header, meta]));
+    els.webhookList.append(el("div", { class: "webhook-card" }, [header, details]));
   }
 }
 
@@ -472,7 +636,386 @@ async function deleteAllWebhooks() {
   }
 }
 
-/** Builds the resource checkboxes from RESOURCE_PRESETS. */
+/**
+ * Parses a Webex filter string into `[key, value]` pairs. Values are kept
+ * verbatim (not URL-decoded) because Webex ids are base64 that can legitimately
+ * contain `+`, `/` and `=` — decoding them would corrupt the value.
+ */
+function parseFilterString(raw) {
+  return (raw || "")
+    .split("&")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const eq = pair.indexOf("=");
+      return eq === -1
+        ? [pair, ""]
+        : [pair.slice(0, eq), pair.slice(eq + 1)];
+    });
+}
+
+/** Serialises `[key, value]` pairs back into a Webex filter string. */
+function buildFilterString(pairs) {
+  return pairs.map(([key, value]) => `${key}=${value}`).join("&");
+}
+
+/** Adds or replaces a single key in the raw filter input. */
+function upsertFilterParam(rawInput, key, value) {
+  const pairs = parseFilterString(rawInput.value);
+  const existing = pairs.find(([k]) => k === key);
+  if (existing) {
+    existing[1] = value;
+  } else {
+    pairs.push([key, value]);
+  }
+  rawInput.value = buildFilterString(pairs);
+}
+
+/** Removes a key from the raw filter input. */
+function removeFilterParam(rawInput, key) {
+  rawInput.value = buildFilterString(
+    parseFilterString(rawInput.value).filter(([k]) => k !== key),
+  );
+}
+
+/** Renders the removable chips that mirror the raw filter string. */
+function renderFilterChips(chips, rawInput) {
+  const pairs = parseFilterString(rawInput.value);
+  chips.replaceChildren(
+    ...pairs.map(([key, value]) =>
+      el("span", { class: "filter-chip" }, [
+        el("span", { class: "filter-chip__key" }, key),
+        el("span", { class: "filter-chip__value", title: value }, value || "\u2014"),
+        el(
+          "button",
+          {
+            type: "button",
+            class: "filter-chip__remove",
+            dataset: { removeKey: key },
+            "aria-label": `Remove ${key} filter`,
+          },
+          [el("span", { class: "icon icon-cancel-regular", "aria-hidden": "true" })],
+        ),
+      ]),
+    ),
+  );
+  chips.hidden = !pairs.length;
+}
+
+/**
+ * Searches rooms (by title) or people (by name/email) and renders the results
+ * into the lookup panel. Selecting a result stores its id on the input while
+ * showing the friendly name, so ids never have to be copied by hand.
+ */
+async function performFilterLookup(entity, input, lookupPanel) {
+  const term = (input.value || "").trim();
+  const status = (message) =>
+    lookupPanel.replaceChildren(
+      el("p", { class: "resource-filter__lookup-status" }, message),
+    );
+
+  lookupPanel.hidden = false;
+
+  if (!webex) {
+    status("Connect a bot token to search.");
+    return;
+  }
+  if (entity === "person" && !term) {
+    status("Type a name or email to search.");
+    return;
+  }
+
+  status("Searching\u2026");
+
+  try {
+    let results = [];
+    if (entity === "room") {
+      const rooms = await webex.listRooms({ max: 100 });
+      const needle = term.toLowerCase();
+      results = (rooms || [])
+        .filter((room) => !needle || (room.title || "").toLowerCase().includes(needle))
+        .slice(0, 25)
+        .map((room) => ({
+          id: room.id,
+          name: room.title || "(untitled space)",
+          sub: room.type || "",
+        }));
+    } else {
+      const params = term.includes("@")
+        ? { email: term, max: 20 }
+        : { displayName: term, max: 20 };
+      const people = await webex.listPeople(params);
+      results = (people || []).slice(0, 25).map((person) => ({
+        id: person.id,
+        name: person.displayName || person.emails?.[0] || "(unknown person)",
+        sub: person.emails?.[0] || "",
+      }));
+    }
+
+    if (!results.length) {
+      status("No matches found.");
+      return;
+    }
+
+    const list = el(
+      "ul",
+      { class: "resource-filter__results" },
+      results.map((result) => {
+        const button = el("button", { type: "button", class: "resource-filter__result" }, [
+          el("span", { class: "resource-filter__result-name" }, result.name),
+          result.sub
+            ? el("span", { class: "resource-filter__result-sub" }, result.sub)
+            : null,
+        ]);
+        button.addEventListener("click", () => {
+          input.value = result.name;
+          input.dataset.selectedId = result.id;
+          lookupPanel.hidden = true;
+          lookupPanel.replaceChildren();
+        });
+        return el("li", {}, button);
+      }),
+    );
+    lookupPanel.replaceChildren(list);
+  } catch (error) {
+    console.error(error);
+    status(describeError(error));
+  }
+}
+
+/** Builds a lookup control (text input + Search) for room/person id filters. */
+function buildLookupControl(entity, lookupPanel) {
+  const input = el("input", {
+    type: "text",
+    class: "field__input resource-filter__control resource-filter__lookup-input",
+    autocomplete: "off",
+    placeholder:
+      entity === "room"
+        ? "Search space name or paste a room ID"
+        : "Search name/email or paste a person ID",
+    dataset: { filterControl: "", lookupEntity: entity },
+  });
+  // Typing again invalidates a previously picked result so the text is treated
+  // as a fresh search term (or a directly-pasted id).
+  input.addEventListener("input", () => {
+    delete input.dataset.selectedId;
+  });
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      performFilterLookup(entity, input, lookupPanel);
+    }
+  });
+
+  const searchBtn = el(
+    "button",
+    {
+      type: "button",
+      class: "icon-button icon-button--with-label secondary-button resource-filter__search",
+    },
+    [
+      el("span", { class: "icon icon-search-regular", "aria-hidden": "true" }),
+      el("span", { class: "icon-button__label" }, "Search"),
+    ],
+  );
+  searchBtn.addEventListener("click", () =>
+    performFilterLookup(entity, input, lookupPanel),
+  );
+
+  return el("div", { class: "resource-filter__lookup-control" }, [input, searchBtn]);
+}
+
+/** Renders the value control for the currently selected filter key. */
+function renderFilterValueControl(valueWrap, lookupPanel, field) {
+  valueWrap.replaceChildren();
+  lookupPanel.hidden = true;
+  lookupPanel.replaceChildren();
+
+  if (!field) {
+    return;
+  }
+
+  if (field.type === "enum" || field.type === "bool") {
+    const options =
+      field.type === "bool" ? ["true", "false"] : field.options;
+    valueWrap.append(
+      el(
+        "select",
+        { class: "field__input resource-filter__control", dataset: { filterControl: "" } },
+        options.map((option) => el("option", { value: option }, option)),
+      ),
+    );
+    return;
+  }
+
+  if (field.type === "text") {
+    valueWrap.append(
+      el("input", {
+        type: "text",
+        class: "field__input resource-filter__control",
+        autocomplete: "off",
+        placeholder: field.placeholder || "",
+        dataset: { filterControl: "" },
+      }),
+    );
+    return;
+  }
+
+  if (field.type === "lookup") {
+    valueWrap.append(buildLookupControl(field.entity, lookupPanel));
+    return;
+  }
+
+  if (field.type === "mentioned") {
+    const personWrap = el("div", { class: "resource-filter__mentioned-person", hidden: true });
+    const modeSelect = el(
+      "select",
+      { class: "field__input resource-filter__mode" },
+      [
+        el("option", { value: "me" }, "Me (the bot)"),
+        el("option", { value: "person" }, "Specific person\u2026"),
+      ],
+    );
+    modeSelect.addEventListener("change", () => {
+      if (modeSelect.value === "person") {
+        personWrap.hidden = false;
+        personWrap.replaceChildren(buildLookupControl("person", lookupPanel));
+      } else {
+        personWrap.hidden = true;
+        personWrap.replaceChildren();
+        lookupPanel.hidden = true;
+        lookupPanel.replaceChildren();
+      }
+    });
+    valueWrap.append(
+      el("div", { class: "resource-filter__mentioned" }, [modeSelect, personWrap]),
+    );
+  }
+}
+
+/** Reads the value the user entered/selected for the active filter key. */
+function readFilterValue(valueWrap, field) {
+  if (!field) {
+    return "";
+  }
+  if (field.type === "mentioned") {
+    const mode = valueWrap.querySelector(".resource-filter__mode");
+    if (!mode || mode.value === "me") {
+      return "me";
+    }
+    const input = valueWrap.querySelector(".resource-filter__lookup-input");
+    return input ? (input.dataset.selectedId || input.value.trim()) : "";
+  }
+  const control = valueWrap.querySelector("[data-filter-control]");
+  if (!control) {
+    return "";
+  }
+  if (control.classList.contains("resource-filter__lookup-input")) {
+    return control.dataset.selectedId || control.value.trim();
+  }
+  return typeof control.value === "string" ? control.value.trim() : control.value;
+}
+
+/** Builds the filter builder + raw-string block for a resource. */
+function renderFilterBlock(schema, checked) {
+  const keySelect = el(
+    "select",
+    { class: "field__input resource-filter__key" },
+    [
+      el("option", { value: "" }, "Add a filter\u2026"),
+      ...schema.map((field) => el("option", { value: field.key }, field.key)),
+    ],
+  );
+  const valueWrap = el("div", { class: "resource-filter__value" });
+  const addBtn = el(
+    "button",
+    {
+      type: "button",
+      class: "icon-button icon-button--with-label secondary-button resource-filter__add",
+      disabled: true,
+    },
+    [
+      el("span", { class: "icon icon-plus-bold", "aria-hidden": "true" }),
+      el("span", { class: "icon-button__label" }, "Add"),
+    ],
+  );
+  const builder = el("div", { class: "resource-filter__builder" }, [
+    keySelect,
+    valueWrap,
+    addBtn,
+  ]);
+  const lookupPanel = el("div", { class: "resource-filter__lookup", hidden: true });
+  const chips = el("div", { class: "resource-filter__chips", hidden: true });
+  const rawInput = el("input", {
+    type: "text",
+    class: "field__input resource-filter__raw",
+    autocomplete: "off",
+    spellcheck: false,
+    placeholder: "roomId=...&mentionedPeople=me",
+    dataset: { filterRaw: "" },
+  });
+  const rawField = el("div", { class: "field" }, [
+    el("label", { class: "field__label" }, "Filter string (optional)"),
+    rawInput,
+    el(
+      "span",
+      { class: "field__hint" },
+      "Standard Webex filter. Edit directly, or use the builder above to add keys.",
+    ),
+  ]);
+
+  const filterEl = el("div", { class: "resource-filter", hidden: !checked }, [
+    el("span", { class: "resource-filter__title" }, "Filters (optional)"),
+    builder,
+    lookupPanel,
+    chips,
+    rawField,
+  ]);
+
+  const refreshChips = () => renderFilterChips(chips, rawInput);
+
+  keySelect.addEventListener("change", () => {
+    const field = schema.find((entry) => entry.key === keySelect.value);
+    renderFilterValueControl(valueWrap, lookupPanel, field);
+    addBtn.disabled = !field;
+  });
+
+  addBtn.addEventListener("click", () => {
+    const field = schema.find((entry) => entry.key === keySelect.value);
+    if (!field) {
+      return;
+    }
+    const value = readFilterValue(valueWrap, field);
+    if (value === "" || value == null) {
+      return;
+    }
+    upsertFilterParam(rawInput, field.key, value);
+    refreshChips();
+    keySelect.value = "";
+    valueWrap.replaceChildren();
+    lookupPanel.hidden = true;
+    lookupPanel.replaceChildren();
+    addBtn.disabled = true;
+  });
+
+  rawInput.addEventListener("input", refreshChips);
+
+  chips.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-key]");
+    if (!button) {
+      return;
+    }
+    removeFilterParam(rawInput, button.dataset.removeKey);
+    refreshChips();
+  });
+
+  return filterEl;
+}
+
+/**
+ * Builds the resource options. Each option is wrapped in a group so a filter
+ * builder can sit inline beneath the toggle, matching the payload tab layout.
+ */
 function renderResourceOptions() {
   els.resourceList.replaceChildren();
   RESOURCE_PRESETS.forEach((preset, index) => {
@@ -492,8 +1035,27 @@ function renderResourceOptions() {
       ]),
       el("span", { class: "resource-option__hint" }, preset.hint),
     ]);
+    const option = el("label", { class: "resource-option", for: id }, [input, text]);
+
+    const children = [option];
+    const schema = FILTER_SCHEMAS[preset.resource];
+    if (schema) {
+      const filterEl = renderFilterBlock(schema, preset.checked);
+      input.addEventListener("change", () => {
+        filterEl.hidden = !input.checked;
+      });
+      children.push(filterEl);
+    }
+
     els.resourceList.append(
-      el("label", { class: "resource-option", for: id }, [input, text]),
+      el(
+        "div",
+        {
+          class: "resource-option-group",
+          dataset: { resource: preset.resource, event: preset.event },
+        },
+        children,
+      ),
     );
   });
 }
@@ -516,10 +1078,15 @@ async function createWebhooks(event) {
 
   const selected = Array.from(
     els.resourceList.querySelectorAll(".resource-option__input:checked"),
-  ).map((input) => ({
-    resource: input.dataset.resource,
-    event: input.dataset.event,
-  }));
+  ).map((input) => {
+    const group = input.closest(".resource-option-group");
+    const rawFilter = group?.querySelector(".resource-filter__raw");
+    return {
+      resource: input.dataset.resource,
+      event: input.dataset.event,
+      filter: rawFilter ? rawFilter.value.trim() : "",
+    };
+  });
 
   if (!selected.length) {
     setStatus(els.createStatus, "Select at least one resource to create.", "error");
@@ -535,13 +1102,16 @@ async function createWebhooks(event) {
 
   let created = 0;
   const failures = [];
-  for (const { resource, event: eventName } of selected) {
+  for (const { resource, event: eventName, filter } of selected) {
     const params = {
       name: `${prefix} - ${resource}`,
       targetUrl,
       resource,
       event: eventName,
     };
+    if (filter) {
+      params.filter = filter;
+    }
     if (secret) {
       params.secret = secret;
     }
