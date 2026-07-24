@@ -22,7 +22,7 @@ const VIEWS = [
   { name: "connected", width: 1280, height: 760 },
   { name: "existingWebhooks", width: 1280, height: 720 },
   { name: "createWebhooks", width: 1280, height: 820 },
-  { name: "generateTests", width: 1280, height: 840 },
+  { name: "generateTests", width: 1280, height: 900 },
   { name: "customiseTest", width: 1280, height: 800 },
   { name: "exampleTextJson", width: 1280, height: 900 },
 ];
