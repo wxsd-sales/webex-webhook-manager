@@ -1756,6 +1756,7 @@ async function createWebhooks(event) {
 
     case "connected":
     case "existingWebhooks":
+    case "socialPreview":
     case "createWebhooks": {
       showTabByPanel("panel-webhooks");
       els.tokenInput.value = MOCK_TOKEN;

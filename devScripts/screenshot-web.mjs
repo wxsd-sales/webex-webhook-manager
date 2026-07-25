@@ -25,6 +25,7 @@ const VIEWS = [
   { name: "generateTests", width: 1280, height: 900 },
   { name: "customiseTest", width: 1280, height: 800 },
   { name: "exampleTextJson", width: 1280, height: 900 },
+  { name: "socialPreview", width: 1280, height: 640 },
 ];
 
 const themes = ["light", "dark"];

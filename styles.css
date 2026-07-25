@@ -1370,8 +1370,11 @@ html.screenshot-mode *::after {
   caret-color: transparent !important;
 }
 
-/* existingWebhooks: drop the connect card so the list sits at the top. */
-html[data-screenshot-view="existingWebhooks"] #connect {
+/* existingWebhooks / socialPreview: drop the connect card so the list sits at
+ * the top. socialPreview reuses the existing-webhooks layout for the GitHub
+ * Pages social preview image. */
+html[data-screenshot-view="existingWebhooks"] #connect,
+html[data-screenshot-view="socialPreview"] #connect {
   display: none;
 }
 

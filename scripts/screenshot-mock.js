@@ -18,6 +18,7 @@ export const SCREENSHOT_VIEWS = [
   "generateTests",
   "customiseTest",
   "exampleTextJson",
+  "socialPreview",
 ];
 
 /** Reads a recognised `view` from the URL hash, or null when not in shot mode. */
