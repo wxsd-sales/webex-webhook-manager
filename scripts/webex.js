@@ -106,7 +106,7 @@ class Webex {
   /**
    * Shows details for an organization, by ID.
    * @param {string} orgId - The unique identifier for the message. example = "Y2lzY29zcGFyazovL3VzL01FU1NBR0UvOTJkYjNiZTAtNDNiZC0xMWU2LThhZTktZGQ1YjNkZmM1NjVk"
-   * @returns {Promise<jsonOrgDetails>} A promise that resolves with the webhooks information or rejects with an error.
+   * @returns {Promise<jsonOrgDetails>} A promise that resolves with the organization details information or rejects with an error.
    * @see {@link https://developer.webex.com/admin/docs/api/v1/organizations/get-organization-details Webex API Documentation}
    */
   async getOrgDetails(orgId) {
@@ -237,7 +237,7 @@ class Webex {
    * @param {?string} params.id - Optional: List people by ID. Accepts up to 85 person IDs separated by commas.
    * @param {?number} params.max - Optional: Limit the maximum number of people in the response
    * @returns {Promise<jsonPersonDetails[]>} A promise that resolves with the people information or rejects with an error.
-   * @see {@link https://developer.webex.com/docs/api/v1/webhooks/list-webhooks Webex API Documentation}
+   * @see {@link https://developer.webex.com/messaging/docs/api/v1/people/list-people Webex API Documentation}
    */
   async listPeople(params) {
     console.log("List People");
